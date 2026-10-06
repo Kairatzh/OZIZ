@@ -1,0 +1,21 @@
+[toolchain]
+
+[features]
+seeds = true
+skip-lint = false
+
+[programs.localnet]
+civic_registry = "OZ1ZcivicRegistry1111111111111111111111111111"
+
+[programs.devnet]
+civic_registry = "OZ1ZcivicRegistry1111111111111111111111111111"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "devnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "npx tsx tests/civic_registry.ts"

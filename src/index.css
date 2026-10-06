@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+/* Leaflet Custom Marker & Map Tweaks */
+.leaflet-container {
+  font-family: inherit;
+  background-color: #020617 !important;
+}
+
+.custom-civic-marker {
+  background: transparent;
+  border: none;
+}
+
+/* Custom sleek scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #020617;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}

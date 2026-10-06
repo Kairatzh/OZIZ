@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - SOLANA_RPC_URL=https://api.devnet.solana.com
+      - SOLANA_RELAYER_SEED=oziz_civic_registry_relayer_oracle_devnet_2026
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/services"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  postgis:
+    image: postgis/postgis:15-3.3-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=oziz_civic
+      - POSTGRES_USER=oziz_admin
+      - POSTGRES_PASSWORD=oziz_secret_password
+    volumes:
+      - postgis_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  postgis_data:
