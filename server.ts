@@ -18,21 +18,111 @@ import {
   MUNICIPAL_SERVICES,
   updateReportStatusInDb,
   addReport,
+  getDbStats,
+  persistAppealsToDisk,
 } from './src/server/db.ts';
 import { analyzeCivicReport } from './src/server/geminiService.ts';
 import { getWeatherForLocation } from './src/server/weatherService.ts';
 import { calculatePriority } from './src/server/priorityEngine.ts';
-import { registerReportOnChain, verifyReportIntegrity } from './src/server/solanaRelayer.ts';
+import { registerReportOnChain, verifyReportIntegrity, checkSolanaHealth } from './src/server/solanaRelayer.ts';
+import { saveMediaAsset, UPLOAD_DIR, getUploadsStats } from './src/server/mediaStore.ts';
 import { CivicAppeal, CreateReportPayload } from './src/shared/types.ts';
 
 dotenv.config();
 
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 const app = express();
 
 // Increase JSON payload limit to accept client-compressed base64 images (~1600px)
 app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: true, limit: '15mb' }));
+
+// Solana Actions CORS headers (required by Dialect and Blinks spec)
+const ACTIONS_CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET,POST,PUT,OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, Content-Encoding, Accept-Encoding',
+};
+
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/actions') || req.path === '/actions.json') {
+    res.set(ACTIONS_CORS_HEADERS);
+    if (req.method === 'OPTIONS') {
+      return res.status(200).end();
+    }
+  }
+  next();
+});
+
+// Dialect Actions Discovery
+app.get('/actions.json', (_req: Request, res: Response) => {
+  return res.json({
+    rules: [
+      {
+        pathPattern: '/api/actions/**',
+        apiPath: '/api/actions/**',
+      },
+    ],
+  });
+});
+
+// Solana Action / Blink API
+app.get('/api/actions/confirm/:id', (req: Request, res: Response) => {
+  const report = getReportById(req.params.id);
+  const title = report ? report.title : 'Городская проблема OZIZ';
+  const description = report
+    ? `${report.context.location.address} · ${report.context.location.district}. Подтвердите проблему для пересчета приоритета службы.`
+    : 'Подтвердите инцидент на блокчейне Solana для начисления +10 очков CitizenReputation.';
+
+  return res.json({
+    type: 'action',
+    icon: 'https://raw.githubusercontent.com/solana-developers/brand-assets/main/assets/solanaLogoMark.png',
+    title: `OZIZ: ${title}`,
+    description,
+    label: 'Подтвердить (+10 Rep)',
+    links: {
+      actions: [
+        {
+          label: 'Подтвердить (+10 Rep)',
+          href: `/api/actions/confirm/${req.params.id}`,
+        },
+      ],
+    },
+  });
+});
+
+app.post('/api/actions/confirm/:id', (req: Request, res: Response) => {
+  const updated = incrementConfirmationInDb(req.params.id);
+  return res.json({
+    message: updated
+      ? `Подтверждение для заявки ${updated.short_code} зарегистрировано в Solana!`
+      : 'Подтверждение успешно зарегистрировано в сети Solana',
+  });
+});
+
+// Static serving of uploaded defect and resolution photos
+app.use('/uploads', express.static(UPLOAD_DIR));
+
+// 0. System Health & Diagnostic Endpoint (Solana Devnet, Gemini, DB, Uploads)
+app.get('/api/health', async (_req: Request, res: Response) => {
+  const solanaHealth = await checkSolanaHealth();
+  const dbStats = getDbStats();
+  const uploadsStats = getUploadsStats();
+
+  return res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime_seconds: Math.floor(process.uptime()),
+    database: dbStats,
+    uploads: uploadsStats,
+    solana: solanaHealth,
+    gemini: {
+      configured: Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'MY_GEMINI_API_KEY'),
+      model: 'gemini-3.8-flash',
+    },
+    environment: process.env.NODE_ENV || 'development',
+  });
+});
 
 // 1. Multimodal AI Analysis Endpoint
 app.post('/api/reports/analyze', async (req: Request, res: Response) => {
@@ -61,11 +151,13 @@ app.post('/api/reports', async (req: Request, res: Response) => {
     const payload: CreateReportPayload = req.body;
     const { image_base64, user_text, lat, lng, address, district, accuracy_m } = payload;
 
-    if (!image_base64) {
+    if (!image_base64 || typeof image_base64 !== 'string') {
       return res.status(400).json({ error: 'Фотография дефекта обязательна' });
     }
-    if (lat === undefined || lng === undefined) {
-      return res.status(400).json({ error: 'GPS-координаты обязательны' });
+    const numLat = Number(lat);
+    const numLng = Number(lng);
+    if (lat === undefined || lng === undefined || isNaN(numLat) || isNaN(numLng) || numLat < -90 || numLat > 90 || numLng < -180 || numLng > 180) {
+      return res.status(400).json({ error: 'Некорректные GPS-координаты. lat: [-90..90], lng: [-180..180]' });
     }
 
     const reportId = randomUUID();
@@ -73,10 +165,10 @@ app.post('/api/reports', async (req: Request, res: Response) => {
     const shortCode = `OZIZ-2026-${shortNumber}`;
 
     // 1. Run AI Analysis
-    const aiAnalysis = await analyzeCivicReport(image_base64, user_text, { lat, lng });
+    const aiAnalysis = await analyzeCivicReport(image_base64, user_text, { lat: numLat, lng: numLng });
 
     // 2. Fetch Open-Meteo Weather
-    const weather = await getWeatherForLocation(lat, lng);
+    const weather = await getWeatherForLocation(numLat, numLng);
 
     // 3. Assemble Geographic & Environmental Context
     const nowIso = new Date().toISOString();
@@ -86,8 +178,8 @@ app.post('/api/reports', async (req: Request, res: Response) => {
 
     const context = {
       location: {
-        lat,
-        lng,
+        lat: numLat,
+        lng: numLng,
         accuracy_m: accuracy_m || 9.2,
         address: address || 'пр. Республики, корп. 12',
         district: district || 'Центральный район',
@@ -120,27 +212,25 @@ app.post('/api/reports', async (req: Request, res: Response) => {
     const deadlineHours = service.sla_hours[priority.level];
     const slaDeadline = new Date(Date.now() + deadlineHours * 3600 * 1000).toISOString();
 
-    // 6. Register Genesis Record on Solana Blockchain
+    // 6. Save media file directly to disk (uploads/)
+    const savedMedia = saveMediaAsset(image_base64);
+
+    // 7. Register Genesis Record on Solana Blockchain with cryptographic ed25519 signature
     const { onchain, genesisEvent } = registerReportOnChain(
       reportId,
       image_base64,
       user_text || '',
       JSON.stringify(aiAnalysis),
-      { lat, lng }
+      { lat: numLat, lng: numLng }
     );
-
-    // Store media base64 or fallback
-    const mediaUrl = image_base64.startsWith('data:')
-      ? image_base64
-      : `data:image/jpeg;base64,${image_base64}`;
 
     const newAppeal: CivicAppeal = {
       id: reportId,
       short_code: shortCode,
       title: `${aiAnalysis.subcategory} (${context.location.address})`,
       user_description: user_text || undefined,
-      media_url: mediaUrl,
-      media_thumbnail_url: mediaUrl,
+      media_url: savedMedia.url,
+      media_thumbnail_url: savedMedia.url,
       media_sha256: onchain.media_sha256,
       media_cid: onchain.media_cid,
       category: aiAnalysis.category,
@@ -228,12 +318,18 @@ app.post('/api/reports/:id/status', (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Отклонение заявки требует обязательного публичного обоснования!' });
   }
 
+  let finalMediaUrl = resolution_media_url;
+  if (resolution_media_url && typeof resolution_media_url === 'string' && resolution_media_url.trim().length > 0) {
+    const saved = saveMediaAsset(resolution_media_url);
+    finalMediaUrl = saved.url;
+  }
+
   const updated = updateReportStatusInDb(
     req.params.id,
     status,
     actor_title || 'Оператор диспетчерской службы',
     note || '',
-    resolution_media_url
+    finalMediaUrl
   );
 
   if (!updated) {
@@ -363,10 +459,12 @@ app.get('/api/events/live', (req: Request, res: Response) => {
   const onCreated = (report: CivicAppeal) => sendEvent('report_created', report);
   const onUpdated = (report: CivicAppeal) => sendEvent('report_updated', report);
   const onConfirmed = (report: CivicAppeal) => sendEvent('report_confirmed', report);
+  const onSlaViolated = (report: CivicAppeal) => sendEvent('sla_violated', report);
 
   civicEventBus.on('report:created', onCreated);
   civicEventBus.on('report:updated', onUpdated);
   civicEventBus.on('report:confirmed', onConfirmed);
+  civicEventBus.on('sla:violated', onSlaViolated);
 
   // Heartbeat ping every 25 seconds
   const heartbeat = setInterval(() => {
@@ -378,9 +476,36 @@ app.get('/api/events/live', (req: Request, res: Response) => {
     civicEventBus.off('report:created', onCreated);
     civicEventBus.off('report:updated', onUpdated);
     civicEventBus.off('report:confirmed', onConfirmed);
+    civicEventBus.off('sla:violated', onSlaViolated);
     res.end();
   });
 });
+
+// 13. SLA Monitoring Background Worker (Runs every 30s)
+const slaMonitorInterval = setInterval(() => {
+  const now = Date.now();
+  let updatedCount = 0;
+  for (const report of appealsStore) {
+    if (['RESOLVED', 'CONFIRMED_BY_CITIZEN', 'REJECTED'].includes(report.status)) {
+      continue;
+    }
+    const deadlineTime = new Date(report.sla_deadline).getTime();
+    if (now > deadlineTime && !report.sla_violated) {
+      report.sla_violated = true;
+      const service = MUNICIPAL_SERVICES.find(s => s.id === report.assigned_service_id);
+      if (service) {
+        service.stats.sla_violations += 1;
+      }
+      updatedCount += 1;
+      civicEventBus.emit('report:updated', report);
+      civicEventBus.emit('sla:violated', report);
+      console.warn(`[SLA ESCALATION] Appeal ${report.short_code} violated SLA deadline!`);
+    }
+  }
+  if (updatedCount > 0) {
+    persistAppealsToDisk();
+  }
+}, 30000);
 
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
