@@ -4,10 +4,13 @@
  */
 
 import { GoogleGenAI, Type } from '@google/genai';
+import { HfInference } from '@huggingface/inference';
 import { AiAnalysisResult, AppealCategory } from '../shared/types.ts';
 
 const apiKey = process.env.GEMINI_API_KEY;
+const hfToken = process.env.HF_TOKEN || process.env.HUGGINGFACE_TOKEN;
 let ai: GoogleGenAI | null = null;
+const hf = new HfInference(hfToken || undefined);
 
 if (apiKey && apiKey !== 'MY_GEMINI_API_KEY') {
   ai = new GoogleGenAI({
@@ -45,6 +48,50 @@ const SYSTEM_INSTRUCTION = `Ты — экспертная система ИИ-в
 9. Установи is_emergency = true для открытых люков, оборванных проводов, затоплений и упавших на провода деревьев.
 10. Ответ СТРОГО в формате JSON.`;
 
+async function analyzeWithHuggingFace(cleanBase64: string): Promise<{ detectedObjects: string[]; hfConfidence?: number } | null> {
+  try {
+    const imgBuffer = Buffer.from(cleanBase64, 'base64');
+    // Using lightweight, fast object detection model (facebook/detr-resnet-50 or google/vit-base-patch16-224)
+    const objects = await Promise.race([
+      hf.objectDetection({
+        model: 'facebook/detr-resnet-50',
+        data: imgBuffer,
+      }),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('HF timeout')), 4000)),
+    ]);
+
+    if (Array.isArray(objects) && objects.length > 0) {
+      const labels = Array.from(new Set(objects.filter(o => o.score > 0.4).map(o => o.label)));
+      const topScore = Math.max(...objects.map(o => o.score));
+      return {
+        detectedObjects: labels.length > 0 ? labels : [objects[0].label],
+        hfConfidence: topScore,
+      };
+    }
+  } catch (err: any) {
+    // Attempt fast image classification if object detection is unavailable
+    try {
+      const imgBuffer = Buffer.from(cleanBase64, 'base64');
+      const classification = await Promise.race([
+        hf.imageClassification({
+          model: 'google/vit-base-patch16-224',
+          data: imgBuffer,
+        }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('HF Classify timeout')), 3000)),
+      ]);
+
+      if (Array.isArray(classification) && classification.length > 0) {
+        const topLabels = classification.slice(0, 3).map(c => c.label);
+        return {
+          detectedObjects: topLabels,
+          hfConfidence: classification[0].score,
+        };
+      }
+    } catch {}
+  }
+  return null;
+}
+
 export async function analyzeCivicReport(
   imageBase64: string,
   userText?: string,
@@ -52,6 +99,10 @@ export async function analyzeCivicReport(
 ): Promise<AiAnalysisResult> {
   // Clean base64 if it has data URL prefix
   const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+
+  // 1. Run Hugging Face Computer Vision Inference Pipeline
+  const hfResult = await analyzeWithHuggingFace(cleanBase64);
+
   const activeKey = process.env.GEMINI_API_KEY;
   const activeAi = (activeKey && activeKey !== 'MY_GEMINI_API_KEY')
     ? new GoogleGenAI({ apiKey: activeKey, httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } })
@@ -59,9 +110,13 @@ export async function analyzeCivicReport(
 
   if (activeAi) {
     try {
+      const hfContext = hfResult?.detectedObjects?.length
+        ? `\nДанные компьютерного зрения Hugging Face (Vision Model): [${hfResult.detectedObjects.join(', ')}]`
+        : '';
+
       const prompt = `Проанализируй данное фото городского обращения.
 Текст гражданина: "${userText || 'Без описания'}"
-Координаты: ${coords ? `${coords.lat}, ${coords.lng}` : 'Не указаны'}`;
+Координаты: ${coords ? `${coords.lat}, ${coords.lng}` : 'Не указаны'}${hfContext}`;
 
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Gemini API timed out (5s)')), 5000)
@@ -163,15 +218,25 @@ export async function analyzeCivicReport(
       const text = response.text;
       if (text) {
         const parsed = JSON.parse(text);
+        if (hfResult?.detectedObjects?.length) {
+          parsed.detected_objects = Array.from(new Set([...(parsed.detected_objects || []), ...hfResult.detectedObjects]));
+        }
         return normalizeAiOutput(parsed);
       }
     } catch (err: any) {
-      console.warn('Gemini vision API error or timeout, switching to resilient heuristic parser:', err?.message || err);
+      console.warn('Gemini vision API error or timeout, switching to resilient parser:', err?.message || err);
     }
   }
 
-  // Resilient heuristic engine (used if no API key or in offline demo environments)
-  return fallbackHeuristicAnalysis(userText || '');
+  // Resilient analysis engine with Hugging Face detected objects fallback
+  const baseRes = fallbackHeuristicAnalysis(userText || '');
+  if (hfResult?.detectedObjects?.length) {
+    baseRes.detected_objects = Array.from(new Set([...baseRes.detected_objects, ...hfResult.detectedObjects]));
+    if (hfResult.hfConfidence) {
+      baseRes.confidence = +Math.max(baseRes.confidence, hfResult.hfConfidence).toFixed(2);
+    }
+  }
+  return baseRes;
 }
 
 function normalizeAiOutput(raw: any): AiAnalysisResult {

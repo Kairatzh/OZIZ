@@ -5072,10 +5072,10 @@ function SubmitResult({ data, payload, onRestart }: { data: Data; payload: Param
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
   const rows = [
-    'Клиентский pre-filter: RF-DETR Nano (WASM) · 28 мс (0 токенов)',
-    'Текстовый роутер: FastText lid + bit-bert (локальный инференс)',
-    'Детерминированный гео-риск: PostGIS + Open-Meteo H3 кэш',
-    'State Compression: минт cNFT листа в Merkle Tree Solana (0.000005 SOL)',
+    'Компьютерное зрение: Hugging Face ViT & DETR-ResNet50 (Vision Model)',
+    'ИИ-семантика: Google Gemini Multimodal Vision Router',
+    'Детерминированный гео-риск: OpenStreetMap Nominatim + H3 геокодирование',
+    'Ончейн-фиксация: Запись отпечатка события в блокчейн Solana Devnet',
   ];
 
   useEffect(() => {
