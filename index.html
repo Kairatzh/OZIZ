@@ -3,19 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>OZIZ Civic Registry — GPS-платформа обращений граждан на Solana</title>
-    <meta name="description" content="GPS-платформа гражданских обращений с мультимодальным ИИ-анализом и неизменяемым реестром на Solana" />
-    <meta property="og:title" content="OZIZ Civic Registry — GPS-платформа обращений граждан на Solana" />
-    <meta property="og:description" content="GPS-платформа гражданских обращений с мультимодальным ИИ-анализом и неизменяемым реестром на Solana" />
+    <title>OZIZ — публичный реестр городских обращений</title>
+    <meta name="description" content="Сфотографируйте проблему, отметьте точку на карте. ИИ определит приоритет, служба получит заявку, а каждый статус будет записан в публичный реестр Solana." />
+    <meta property="og:title" content="OZIZ — публичный реестр городских обращений" />
     <meta property="og:type" content="website" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <meta name="theme-color" content="#FFFFFF" />
+    <script>
+      // Apply theme before first paint to avoid a flash of the wrong theme.
+      (function () {
+        try {
+          var t = localStorage.getItem('oziz-theme');
+          if (!t) t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          document.documentElement.setAttribute('data-theme', t);
+        } catch (e) {}
+      })();
+    </script>
   </head>
-  <body class="bg-slate-950 text-slate-100 font-sans antialiased selection:bg-cyan-500/30 selection:text-cyan-200 min-h-screen">
+  <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-
