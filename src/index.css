@@ -6,6 +6,8 @@
   font-family: inherit;
   background-color: var(--c-bg2) !important;
   outline: none;
+  isolation: isolate;
+  z-index: 0 !important;
 }
 .leaflet-control-zoom {
   border: 1px solid var(--c-line) !important;
