@@ -3386,28 +3386,68 @@ function Navbar({
   );
 }
 
-function Footer({ source }: { source: 'api' | 'demo' }) {
+function Footer({ source }: { source?: string }) {
   const cols: Array<[string, Array<[string, () => void]>]> = [
-    ['Продукт', [['Подать заявку', () => go('/submit')], ['Карта обращений', () => go('/map')], ['Прозрачность', () => go('/transparency')]]],
-    ['Службам', [['Панель службы', () => go('/dispatch')], ['Регламенты SLA', () => go('/transparency')], ['API для интеграции', () => toast('Документация API: API.md в репозитории')]]],
-    ['Реестр', [['Как работает реестр', () => scrollToId('how')], ['Проверка хэшей', () => go('/map')], ['Открытые данные', () => go('/transparency')]]],
-    ['О проекте', [['Вопросы и ответы', () => scrollToId('faq')], ['Приватность', () => scrollToId('faq')], ['Контакты', () => toast('hello@oziz.kz')]]],
+    [
+      'Продукт',
+      [
+        ['Подать заявку', () => go('/submit')],
+        ['Карта обращений', () => go('/map')],
+        ['Прозрачность', () => go('/transparency')],
+      ],
+    ],
+    [
+      'Службам',
+      [
+        ['Панель службы', () => go('/dispatch')],
+        ['Регламенты SLA', () => go('/transparency')],
+        ['API для интеграции', () => toast('Документация API: API.md в репозитории')],
+      ],
+    ],
+    [
+      'Реестр',
+      [
+        ['Как работает реестр', () => scrollToId('how')],
+        ['Проверка хэшей', () => go('/map')],
+        ['Открытые данные', () => go('/transparency')],
+      ],
+    ],
+    [
+      'О проекте',
+      [
+        ['Вопросы и ответы', () => scrollToId('faq')],
+        ['Приватность', () => scrollToId('faq')],
+        ['Контакты', () => toast('Связь с поддержкой: hello@oziz.kz')],
+      ],
+    ],
   ];
   return (
-    <footer className="border-t border-line">
-      <Container className="py-12 md:py-16">
-        <div className="grid grid-cols-2 gap-8 md:grid-cols-12">
-          <div className="col-span-2 md:col-span-4">
-            <OzizLogo className="h-6 w-auto" />
-            <p className="mt-2 max-w-[280px] text-[13px] text-fg2">Публичный реестр городских обращений. Астана, Казахстан.</p>
+    <footer className="relative z-20 border-t border-white/10 bg-[#040406] text-white">
+      <Container className="py-14 md:py-20">
+        <div className="grid grid-cols-2 gap-10 md:grid-cols-12">
+          <div className="col-span-2 md:col-span-4 space-y-3">
+            <OzizLogo className="h-7 w-auto" />
+            <p className="max-w-[300px] text-sm leading-relaxed text-zinc-400">
+              Публичный реестр городских обращений. Астана, Казахстан.
+            </p>
+            <div className="pt-2 flex items-center gap-2 font-mono text-xs text-amber-400">
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+              Solana Devnet Network Active
+            </div>
           </div>
           {cols.map(([title, links]) => (
             <div key={title} className="md:col-span-2">
-              <div className="micro mb-3">{title}</div>
-              <ul className="space-y-2">
+              <div className="mb-4 font-mono text-xs font-bold uppercase tracking-wider text-zinc-300">
+                {title}
+              </div>
+              <ul className="space-y-2.5">
                 {links.map(([l, fn]) => (
                   <li key={l}>
-                    <button type="button" onClick={fn} className="t text-[13px] text-fg2 hover:text-fg">
+                    <button
+                      type="button"
+                      onClick={fn}
+                      className="t text-sm text-zinc-400 hover:text-white hover:translate-x-1 inline-block transition-all"
+                    >
                       {l}
                     </button>
                   </li>
@@ -3416,20 +3456,24 @@ function Footer({ source }: { source: 'api' | 'demo' }) {
             </div>
           ))}
         </div>
-        <div className="mt-12 flex flex-col gap-4 border-t border-line pt-6 text-xs text-fg3 md:flex-row md:items-center md:justify-between">
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-            <span>2026 OZIZ</span>
-            <button type="button" className="t hover:text-fg" onClick={() => scrollToId('faq')}>
+        <div className="mt-14 flex flex-col gap-4 border-t border-white/10 pt-8 text-xs text-zinc-400 md:flex-row md:items-center md:justify-between font-mono">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <span className="text-white font-medium">2026 OZIZ</span>
+            <button type="button" className="t hover:text-white transition-colors" onClick={() => scrollToId('faq')}>
               Политика приватности
             </button>
-            <button type="button" className="t hover:text-fg" onClick={() => scrollToId('faq')}>
+            <button type="button" className="t hover:text-white transition-colors" onClick={() => scrollToId('faq')}>
               Условия использования
             </button>
-            {source === 'demo' && <Chip>Демо-данные</Chip>}
+            {source === 'demo' && (
+              <span className="rounded bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 text-amber-400">
+                Демо-данные
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2">
-            <span>Программа реестра</span>
-            <HashLabel value={PROGRAM_ID} a={6} b={4} className="!text-xs" />
+            <span className="text-zinc-500">Программа реестра:</span>
+            <HashLabel value={PROGRAM_ID} a={6} b={4} className="!text-xs text-amber-400" />
           </div>
         </div>
       </Container>
@@ -4498,6 +4542,246 @@ function LandingDefectsShowcaseSection() {
   );
 }
 
+function AiDefectSandbox() {
+  const [activeDefect, setActiveDefect] = useState<number>(0);
+
+  const defects = [
+    {
+      id: 'manhole',
+      title: 'Открытый смотровой люк',
+      location: 'ул. Достык, 18',
+      score: 98,
+      level: 'CRITICAL',
+      confidence: '98.4%',
+      model: 'facebook/detr-resnet-50',
+      box: { top: '30%', left: '35%', width: '30%', height: '35%' },
+      hazards: ['пешеходы', 'дети'],
+      desc: 'Обнаружено отсутствие чугунной крышки колодца. Прямая угроза жизни детей и пешеходов.',
+      pdaHash: 'b82E71aK...3fA1c0De',
+    },
+    {
+      id: 'pothole',
+      title: 'Глубокая яма на проезжей части',
+      location: 'пр. Кабанбай батыра, 42',
+      score: 85,
+      level: 'HIGH',
+      confidence: '94.2%',
+      model: 'google/vit-base-patch16-224',
+      box: { top: '40%', left: '25%', width: '45%', height: '30%' },
+      hazards: ['водители', 'велосипедисты'],
+      desc: 'Выбоина глубиной 14 см. Высокий риск экстренного маневрирования на скорости.',
+      pdaHash: 'Q9xm4Lp2...7Kd29fQa',
+    },
+    {
+      id: 'traffic',
+      title: 'Неисправный светофор',
+      location: 'ул. Туран / ул. Сыганак',
+      score: 92,
+      level: 'CRITICAL',
+      confidence: '96.1%',
+      model: 'facebook/detr-resnet-50',
+      box: { top: '20%', left: '40%', width: '20%', height: '40%' },
+      hazards: ['водители', 'пешеходы'],
+      desc: 'Отключена секция регулировки фаз. Риск столкновения транспортных потоков.',
+      pdaHash: '7Kd29fQa...b82E71aK',
+    },
+    {
+      id: 'dump',
+      title: 'Стихийная свалка мусора',
+      location: 'мкр. Чубары, ул. Акмешит',
+      score: 55,
+      level: 'MEDIUM',
+      confidence: '91.5%',
+      model: 'google/vit-base-patch16-224',
+      box: { top: '35%', left: '20%', width: '50%', height: '40%' },
+      hazards: ['экология'],
+      desc: 'Сброс строительных отходов во дворе. Заблокирован проезд коммунальной техники.',
+      pdaHash: '3fA1c0De...Q9xm4Lp2',
+    },
+  ];
+
+  const cur = defects[activeDefect];
+
+  return (
+    <section id="ai-sandbox" className="relative z-10 border-t border-white/10 py-20 md:py-28 bg-[#050508]">
+      <Container>
+        <div className="rounded-2xl border border-white/10 bg-[#08080b] p-6 shadow-2xl backdrop-blur-xl">
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-5 border-b border-white/10">
+            <div>
+              <div className="font-mono text-xs font-semibold text-amber-400 uppercase tracking-wider">
+                Интерактивный ИИ-сканер
+              </div>
+              <h3 className="text-xl font-semibold text-white mt-0.5">Симуляция распознавания инцидентов</h3>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {defects.map((d, i) => (
+                <button
+                  key={d.id}
+                  type="button"
+                  onClick={() => setActiveDefect(i)}
+                  className={cn(
+                    'px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all',
+                    activeDefect === i
+                      ? 'bg-amber-500 text-black font-semibold shadow-[0_0_15px_rgba(245,158,11,0.4)]'
+                      : 'bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white'
+                  )}
+                >
+                  {d.title.split(' ')[0]} {d.title.split(' ')[1]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-6 grid gap-6 lg:grid-cols-12 items-center">
+            {/* Visual Inspection Screen */}
+            <div className="lg:col-span-7">
+              <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-white/10 bg-[#0c0c10] shadow-inner">
+                {/* Dark grid background */}
+                <div className="absolute inset-0 bg-[radial-gradient(#ffffff0a_1px,transparent_1px)] [background-size:16px_16px]" />
+
+                {/* Bounding Box overlay */}
+                <div
+                  style={cur.box}
+                  className="absolute border-2 border-amber-400 bg-amber-500/10 rounded-lg transition-all duration-500 animate-pulse shadow-[0_0_20px_rgba(245,158,11,0.3)]"
+                >
+                  <div className="absolute -top-6 left-0 rounded bg-amber-500 px-2 py-0.5 font-mono text-[10px] font-bold text-black uppercase tracking-wider shadow">
+                    AI DETECTED: {cur.confidence}
+                  </div>
+                </div>
+
+                {/* Corner Markers */}
+                <div className="absolute top-3 left-3 font-mono text-[11px] text-zinc-500">CAMERA_FEED_01 // ASTANA</div>
+                <div className="absolute bottom-3 left-3 font-mono text-[11px] text-amber-400 flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-amber-400 animate-ping" />
+                  LIVE OBJECT RECOGNITION
+                </div>
+              </div>
+            </div>
+
+            {/* Telemetry Panel */}
+            <div className="lg:col-span-5 space-y-4">
+              <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+                <div className="flex items-center justify-between text-xs font-mono text-zinc-400">
+                  <span>Приоритет дефекта</span>
+                  <span className="text-amber-400 font-bold">{cur.score} / 100</span>
+                </div>
+                <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/10">
+                  <div
+                    className="h-full bg-gradient-to-r from-amber-500 to-red-500 transition-all duration-700"
+                    style={{ width: `${cur.score}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2 text-xs font-mono">
+                <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                  <span className="text-zinc-500">Нейросеть:</span>
+                  <span className="text-zinc-200 font-medium">{cur.model}</span>
+                </div>
+                <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                  <span className="text-zinc-500">Локация:</span>
+                  <span className="text-zinc-200 font-medium">{cur.location}</span>
+                </div>
+                <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                  <span className="text-zinc-500">Solana PDA Hash:</span>
+                  <span className="text-amber-400 font-medium">{cur.pdaHash}</span>
+                </div>
+              </div>
+
+              <p className="text-xs leading-relaxed text-zinc-400 pt-1">
+                {cur.desc}
+              </p>
+
+              <Button variant="primary" size="sm" icon="arrowRight" onClick={() => go('/map')}>
+                Проверить эту заявку на карте
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Container>
+    </section>
+  );
+}
+
+function RepairBeforeAfterSlider() {
+  const [sliderPos, setSliderPos] = useState(50);
+
+  return (
+    <section id="repair-comparison" className="relative z-10 border-t border-white/10 py-20 md:py-28 bg-[#060609]">
+      <Container>
+        <div className="rounded-2xl border border-white/10 bg-[#08080b] p-6 shadow-2xl backdrop-blur-xl">
+          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between mb-6">
+            <div>
+              <div className="font-mono text-xs font-semibold text-emerald-400 uppercase tracking-wider">
+                Подтверждение результата
+              </div>
+              <h3 className="text-xl font-semibold text-white mt-1">До и После ремонта: Прозрачный контроль</h3>
+            </div>
+            <div className="text-xs font-mono text-zinc-400">
+              Потяните слайдер, чтобы сравнить результат работ
+            </div>
+          </div>
+
+          <div className="relative aspect-[21/9] w-full select-none overflow-hidden rounded-xl border border-white/10 bg-black">
+            {/* After Image (Right side layer) */}
+            <div className="absolute inset-0 bg-[#121216] flex items-center justify-center">
+              <div className="text-center p-6">
+                <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 mb-3">
+                  <Icon name="check" size={24} />
+                </div>
+                <div className="text-lg font-semibold text-white">ПОСЛЕ РЕМОНТА</div>
+                <p className="mt-1 text-xs text-zinc-400 max-w-[320px] mx-auto">
+                  Асфальтовое покрытие восстановлено, колодец закрыт новой чугунной крышкой. Подтверждено жителями.
+                </p>
+                <div className="mt-3 inline-block rounded-full bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 font-mono text-xs text-emerald-400">
+                  Статус: RESOLVED · Solana Memo Signed
+                </div>
+              </div>
+            </div>
+
+            {/* Before Image (Left side layer clipped) */}
+            <div
+              style={{ width: `${sliderPos}%` }}
+              className="absolute inset-y-0 left-0 overflow-hidden bg-[#1a0f12] border-r border-amber-400 flex items-center justify-center z-10"
+            >
+              <div className="text-center p-6 w-[800px]">
+                <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-red-500/20 text-red-400 mb-3">
+                  <Icon name="alert" size={24} />
+                </div>
+                <div className="text-lg font-semibold text-white">ДО РЕМОНТА</div>
+                <p className="mt-1 text-xs text-zinc-400 max-w-[320px] mx-auto">
+                  Открытый люк на пешеходном тротуаре. Оценка ИИ: 98 / 100 (Критическая опасность).
+                </p>
+                <div className="mt-3 inline-block rounded-full bg-red-500/10 border border-red-500/20 px-3 py-1 font-mono text-xs text-red-400">
+                  Статус: NEW · AI Verified
+                </div>
+              </div>
+            </div>
+
+            {/* Slider Handle */}
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={sliderPos}
+              onChange={e => setSliderPos(Number(e.target.value))}
+              className="absolute inset-0 h-full w-full opacity-0 cursor-ew-resize z-30"
+            />
+            <div
+              style={{ left: `${sliderPos}%` }}
+              className="pointer-events-none absolute inset-y-0 -ml-3 z-20 flex items-center justify-center"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-amber-500 text-black shadow-lg">
+                <Icon name="arrows" size={16} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </Container>
+    </section>
+  );
+}
+
 function Landing({ data }: { data: Data }) {
   const t = useT();
   const { reports, services, loading } = data;
@@ -4666,11 +4950,17 @@ function Landing({ data }: { data: Data }) {
       {/* Quick Report & Photo Watermark Downloader */}
       <LandingQuickReportSection />
 
+      {/* Interactive AI Defect Sandbox */}
+      <AiDefectSandbox />
+
       {/* Detailed Mission, Pillars & Comparison Table */}
       <LandingPillarsSection />
 
       {/* Real Defect Examples Grid */}
       <LandingDefectsShowcaseSection />
+
+      {/* Interactive Repair Before/After Comparison Slider */}
+      <RepairBeforeAfterSlider />
 
       {/* =========================================================================
        * 3. SECTION — ANALYSIS & INSTANT INCIDENT DETECTION
