@@ -4705,6 +4705,23 @@ function AiDefectSandbox() {
 
 function RepairBeforeAfterSlider() {
   const [sliderPos, setSliderPos] = useState(50);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(1000);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        if (entry.contentRect.width > 0) {
+          setContainerWidth(entry.contentRect.width);
+        }
+      }
+    });
+    ro.observe(el);
+    setContainerWidth(el.offsetWidth || 1000);
+    return () => ro.disconnect();
+  }, []);
 
   return (
     <section id="repair-comparison" className="relative z-10 border-t border-white/10 py-20 md:py-28 bg-[#060609]">
@@ -4712,53 +4729,65 @@ function RepairBeforeAfterSlider() {
         <div className="rounded-2xl border border-white/10 bg-[#08080b] p-6 shadow-2xl backdrop-blur-xl">
           <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between mb-6">
             <div>
-              <div className="font-mono text-xs font-semibold text-emerald-400 uppercase tracking-wider">
-                Подтверждение результата
+              <div className="font-mono text-xs font-semibold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                Верификация выполненных работ
               </div>
               <h3 className="text-xl font-semibold text-white mt-1">До и После ремонта: Прозрачный контроль</h3>
             </div>
             <div className="text-xs font-mono text-zinc-400">
-              Потяните слайдер, чтобы сравнить результат работ
+              Потяните слайдер влево или вправо для сравнения снимков
             </div>
           </div>
 
-          <div className="relative aspect-[21/9] w-full select-none overflow-hidden rounded-xl border border-white/10 bg-black">
-            {/* After Image (Right side layer) */}
-            <div className="absolute inset-0 bg-[#121216] flex items-center justify-center">
-              <div className="text-center p-6">
-                <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 mb-3">
-                  <Icon name="check" size={24} />
+          <div ref={containerRef} className="relative aspect-[4/3] sm:aspect-[16/9] md:aspect-[21/9] w-full select-none overflow-hidden rounded-xl border border-white/10 bg-black">
+            {/* AFTER image layer (Full container background layer) */}
+            <div className="absolute inset-0">
+              <img
+                src="/samples/after_manhole.jpg"
+                alt="После ремонта - Колодец закрыт крышкой"
+                className="h-full w-full object-cover"
+              />
+              <div className="absolute top-4 right-4 z-10 rounded-lg bg-emerald-950/90 border border-emerald-500/40 p-3 backdrop-blur-md shadow-xl">
+                <div className="flex items-center gap-2 font-mono text-xs font-bold text-emerald-400">
+                  <Icon name="check" size={16} />
+                  ПОСЛЕ РЕМОНТА
                 </div>
-                <div className="text-lg font-semibold text-white">ПОСЛЕ РЕМОНТА</div>
-                <p className="mt-1 text-xs text-zinc-400 max-w-[320px] mx-auto">
-                  Асфальтовое покрытие восстановлено, колодец закрыт новой чугунной крышкой. Подтверждено жителями.
-                </p>
-                <div className="mt-3 inline-block rounded-full bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 font-mono text-xs text-emerald-400">
+                <div className="mt-1 text-[11px] text-zinc-200">
+                  Люки закрыты бетонными крышками
+                </div>
+                <div className="mt-1.5 font-mono text-[10px] text-emerald-400/90">
                   Статус: RESOLVED · Solana Memo Signed
                 </div>
               </div>
             </div>
 
-            {/* Before Image (Left side layer clipped) */}
+            {/* BEFORE image layer (Clipped from left using sliderPos percentage) */}
             <div
               style={{ width: `${sliderPos}%` }}
-              className="absolute inset-y-0 left-0 overflow-hidden bg-[#1a0f12] border-r border-amber-400 flex items-center justify-center z-10"
+              className="absolute inset-y-0 left-0 overflow-hidden border-r-2 border-amber-400 z-10 shadow-2xl"
             >
-              <div className="text-center p-6 w-[800px]">
-                <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-red-500/20 text-red-400 mb-3">
-                  <Icon name="alert" size={24} />
+              <img
+                src="/samples/before_manhole.jpg"
+                alt="До ремонта - Открытый люк"
+                className="absolute inset-y-0 left-0 h-full max-w-none object-cover"
+                style={{ width: `${containerWidth}px` }}
+              />
+              <div className="absolute top-4 left-4 z-10 rounded-lg bg-red-950/90 border border-red-500/40 p-3 backdrop-blur-md shadow-xl">
+                <div className="flex items-center gap-2 font-mono text-xs font-bold text-red-400">
+                  <Icon name="alert" size={16} />
+                  ДО РЕМОНТА
                 </div>
-                <div className="text-lg font-semibold text-white">ДО РЕМОНТА</div>
-                <p className="mt-1 text-xs text-zinc-400 max-w-[320px] mx-auto">
-                  Открытый люк на пешеходном тротуаре. Оценка ИИ: 98 / 100 (Критическая опасность).
-                </p>
-                <div className="mt-3 inline-block rounded-full bg-red-500/10 border border-red-500/20 px-3 py-1 font-mono text-xs text-red-400">
-                  Статус: NEW · AI Verified
+                <div className="mt-1 text-[11px] text-zinc-200">
+                  Открытый смотровой колодец во дворе
+                </div>
+                <div className="mt-1.5 font-mono text-[10px] text-red-400/90">
+                  Оценка ИИ: 98/100 (Критический риск)
                 </div>
               </div>
             </div>
 
-            {/* Slider Handle */}
+            {/* Range Input for dragging */}
             <input
               type="range"
               min="0"
@@ -4766,13 +4795,16 @@ function RepairBeforeAfterSlider() {
               value={sliderPos}
               onChange={e => setSliderPos(Number(e.target.value))}
               className="absolute inset-0 h-full w-full opacity-0 cursor-ew-resize z-30"
+              aria-label="Слайдер сравнения До и После ремонта"
             />
+
+            {/* Visual Slider Bar Line & Knob */}
             <div
               style={{ left: `${sliderPos}%` }}
-              className="pointer-events-none absolute inset-y-0 -ml-3 z-20 flex items-center justify-center"
+              className="pointer-events-none absolute inset-y-0 -ml-4 z-20 flex items-center justify-center"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-amber-500 text-black shadow-lg">
-                <Icon name="arrows" size={16} />
+              <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-amber-500 text-black shadow-[0_0_20px_rgba(245,158,11,0.6)]">
+                <Icon name="arrows" size={18} />
               </div>
             </div>
           </div>
