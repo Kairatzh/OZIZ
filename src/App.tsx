@@ -14,6 +14,7 @@ import type {
   PriorityLevel,
   StatusEventRecord,
 } from './shared/types.ts';
+import { downloadFile, type PhotoInfo } from './lib/toolkit.tsx';
 
 /* =========================================================================
  * 1. Constants & dictionaries
@@ -4085,6 +4086,418 @@ function BentoSolanaDemo() {
   );
 }
 
+/* =========================================================================
+ * 10.1 Landing Sections (Satellite Map, Reporter, Pillars, Defects)
+ * ========================================================================= */
+
+function LandingSatelliteSection({ reports }: { reports: CivicAppeal[] }) {
+  const mapPoints: MapPoint[] = useMemo(
+    () =>
+      reports.map(r => ({
+        id: r.id,
+        lat: r.context?.location?.lat ?? (r as any).lat ?? 51.1342,
+        lng: r.context?.location?.lng ?? (r as any).lng ?? 71.4308,
+        color: PRIORITY[r.priority?.level]?.color || 'var(--c-accent)',
+        label: r.title,
+      })),
+    [reports]
+  );
+
+  return (
+    <section id="satellite-map" className="relative z-10 border-t border-white/10 py-20 md:py-28 bg-[#050507]">
+      <Container>
+        <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div>
+            <div className="mb-2 font-mono text-xs font-semibold tracking-widest text-red-400 uppercase flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+              Спутниковый мониторинг местности
+            </div>
+            <h2 className="text-3xl font-semibold tracking-tight text-white md:text-5xl">
+              Интерактивная карта инцидентов
+            </h2>
+            <p className="mt-3 max-w-[620px] text-base text-zinc-400">
+              Спутниковые снимки высокого разрешения Esri World Imagery в реальном времени с привязкой городских дефектов, уровнями риска и точными GPS-координатами.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button variant="primary" icon="map" onClick={() => go('/map')}>
+              Открыть полноэкранную карту
+            </Button>
+          </div>
+        </div>
+
+        <div className="relative rounded-2xl border border-white/10 bg-[#08080a] p-2.5 shadow-2xl backdrop-blur-xl">
+          <div className="h-[520px] w-full overflow-hidden rounded-xl">
+            <MapCanvas
+              points={mapPoints}
+              interactive={true}
+              initialZoom={14}
+              initialCenter={{ lat: 51.1342, lng: 71.4308 }}
+              className="h-full w-full"
+              label="Спутниковая карта городских проблем"
+            />
+          </div>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 px-3 py-1.5 text-xs text-zinc-400 font-mono">
+            <div className="flex items-center gap-4">
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-[#ff3b30]" />
+                Критический
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-[#ff9500]" />
+                Высокий
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-[#ffcc00]" />
+                Средний
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-[#34c759]" />
+                Устранено
+              </span>
+            </div>
+            <span>Спутник: Esri World Imagery / Carto Voyager</span>
+          </div>
+        </div>
+      </Container>
+    </section>
+  );
+}
+
+function LandingQuickReportSection() {
+  const [loading, setLoading] = useState(false);
+  const [watermarkedUrl, setWatermarkedUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const applyWatermarkAndSet = async (info: PhotoInfo) => {
+    setLoading(true);
+    try {
+      const img = new Image();
+      img.src = info.dataUrl;
+      await new Promise(res => (img.onload = res));
+
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height + 140;
+      const ctx = canvas.getContext('2d')!;
+
+      // Draw original image
+      ctx.drawImage(img, 0, 0);
+
+      // Draw bottom watermark bar
+      ctx.fillStyle = '#08080a';
+      ctx.fillRect(0, img.height, canvas.width, 140);
+
+      ctx.fillStyle = '#ef4444';
+      ctx.font = 'bold 26px monospace';
+      ctx.fillText('OZIZ PROOF OF INCIDENT — VERIFIED', 24, img.height + 45);
+
+      ctx.fillStyle = '#d4d4d8';
+      ctx.font = '18px monospace';
+      const timestamp = new Date().toLocaleString('ru-RU');
+      const hash = hashHex(info.dataUrl, 24);
+      ctx.fillText(`GPS: 51.13421 N, 71.43084 E | TIME: ${timestamp}`, 24, img.height + 85);
+      ctx.fillText(`SHA256 HASH: ${hash} | IMMUTABLE LEDGER`, 24, img.height + 115);
+
+      const wmUrl = canvas.toDataURL('image/jpeg', 0.9);
+      setWatermarkedUrl(wmUrl);
+      toast('Водяной знак и SHA-256 метаданные сформированы');
+    } catch {
+      toast('Ошибка обработки снимка');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLoading(true);
+    try {
+      const info = await compressImage(file);
+      await applyWatermarkAndSet(info);
+    } catch {
+      toast('Не удалось прочитать файл');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSamplePhoto = async () => {
+    setLoading(true);
+    try {
+      const info = makeSamplePhoto();
+      await applyWatermarkAndSet(info);
+    } catch {
+      toast('Не удалось сгенерировать снимкок');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDownloadPhoto = () => {
+    if (!watermarkedUrl) return;
+    downloadFile(`oziz_proof_${Date.now()}.jpg`, watermarkedUrl);
+    toast('Защищённое фото с водяным знаком скачано');
+  };
+
+  return (
+    <section id="quick-report" className="relative z-10 border-t border-white/10 py-20 md:py-28 bg-[#070709]">
+      <Container>
+        <div className="grid gap-10 lg:grid-cols-12 lg:gap-12 items-center">
+          <div className="lg:col-span-6">
+            <div className="mb-2.5 font-mono text-xs font-semibold tracking-widest text-red-400 uppercase">
+              Быстрый репортер
+            </div>
+            <h2 className="text-3xl font-semibold tracking-tight text-white md:text-5xl">
+              Пожаловаться и сделать фото с водяным знаком
+            </h2>
+            <p className="mt-4 text-base leading-relaxed text-zinc-400 md:text-lg">
+              Сделайте фото инцидента прямо сейчас или загрузите файл. OZIZ автоматически привяжет GPS-координаты, сгенерирует SHA-256 хэш и сформирует защищенное фото с доказательной меткой.
+            </p>
+
+            <div className="mt-6 space-y-3.5">
+              <div className="flex items-center gap-3.5 text-sm text-zinc-300">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-red-500/20 font-mono text-xs font-semibold text-red-400">1</span>
+                <span>Зафиксируйте дефект (яма, открытый люк, повреждённый знак)</span>
+              </div>
+              <div className="flex items-center gap-3.5 text-sm text-zinc-300">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-red-500/20 font-mono text-xs font-semibold text-red-400">2</span>
+                <span>Автоматическое формирование криптографического штампа времени и GPS</span>
+              </div>
+              <div className="flex items-center gap-3.5 text-sm text-zinc-300">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-red-500/20 font-mono text-xs font-semibold text-red-400">3</span>
+                <span>Скачайте готовое фото с водяным знаком или сразу отправьте заявку</span>
+              </div>
+            </div>
+
+            <div className="mt-8 flex flex-wrap gap-3">
+              <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
+              <Button variant="primary" icon="camera" loading={loading} onClick={() => fileInputRef.current?.click()}>
+                Сделать фото / Загрузить
+              </Button>
+              <Button variant="secondary" icon="refresh" loading={loading} onClick={handleSamplePhoto}>
+                Тестовое фото ямы
+              </Button>
+            </div>
+          </div>
+
+          <div className="lg:col-span-6">
+            <div className="relative rounded-2xl border border-white/10 bg-[#0c0c0e] p-6 shadow-2xl">
+              {watermarkedUrl ? (
+                <div className="space-y-4">
+                  <div className="relative overflow-hidden rounded-xl border border-white/10">
+                    <img src={watermarkedUrl} alt="OZIZ Proof Watermark" className="w-full max-h-[380px] object-cover" />
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                    <Button variant="secondary" size="sm" icon="download" onClick={handleDownloadPhoto}>
+                      Скачать фото с водометкой
+                    </Button>
+                    <Button variant="primary" size="sm" icon="arrowRight" onClick={() => go('/submit')}>
+                      Отправить заявку в OZIZ
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed border-white/10 rounded-xl">
+                  <Icon name="camera" size={44} className="text-zinc-500" />
+                  <div className="mt-4 text-base font-medium text-white">Фото пока не выбрано</div>
+                  <p className="mt-1.5 max-w-[300px] text-xs leading-relaxed text-zinc-400">
+                    Нажмите «Сделать фото / Загрузить» или «Тестовое фото ямы», чтобы сгенерировать защищенный снимок с водяным знаком.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </Container>
+    </section>
+  );
+}
+
+function LandingPillarsSection() {
+  return (
+    <section id="about-oziz" className="relative z-10 border-t border-white/10 py-20 md:py-28 bg-[#050507]">
+      <Container>
+        <div className="mx-auto max-w-[780px] text-center">
+          <div className="mb-2.5 font-mono text-xs font-semibold tracking-widest text-red-400 uppercase">
+            О платформе ОЗИЗ
+          </div>
+          <h2 className="text-3xl font-semibold tracking-tight text-white md:text-5xl">
+            Что такое OZIZ и почему его выбирают
+          </h2>
+          <p className="mt-5 text-base leading-relaxed text-zinc-400 md:text-lg">
+            OZIZ (Open Zone Incident Zero) — публичный децентрализованный реестр городских обращений. Мы соединили технологии ИИ-детекции, детерминированную приоритизацию и неизменяемый реестр на блокчейне Solana, чтобы сделать работу городских служб на 100% подконтрольной жителям.
+          </p>
+        </div>
+
+        <div className="mt-14 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          {[
+            {
+              num: '01',
+              title: 'Детекция и GPS',
+              desc: 'Компьютерное зрение анализирует фотографии, классифицирует дефект и с точностью до метра привязывает его к карте города.',
+              icon: 'scan',
+            },
+            {
+              num: '02',
+              title: 'Объяснимый ИИ-приоритет',
+              desc: 'Формула от 0 до 100 учитывает близость школ, больниц, плотность трафика и прогноз погоды. Все веса открыты.',
+              icon: 'activity',
+            },
+            {
+              num: '03',
+              title: 'SLA и таймеры служб',
+              desc: 'Заявки поступают в общую диспетчерскую очередь. Задержки фиксируются автоматически и влияют на рейтинг службы.',
+              icon: 'clock',
+            },
+            {
+              num: '04',
+              title: 'Блокчейн Solana',
+              desc: 'Хэши статусов записываются в Solana Devnet через SPL Memo. Ни админ, ни служба не могут удалить или подделать историю.',
+              icon: 'shield',
+            },
+          ].map(p => (
+            <div key={p.num} className="rounded-2xl border border-white/10 bg-[#08080a]/80 p-6 backdrop-blur-xl hover:border-red-500/40 transition-colors">
+              <div className="font-mono text-xs font-semibold text-red-400">{p.num}</div>
+              <h3 className="mt-3 text-lg font-semibold text-white">{p.title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-zinc-400">{p.desc}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-16 rounded-2xl border border-white/10 bg-[#08080a]/90 p-6 md:p-8 backdrop-blur-xl">
+          <h3 className="text-xl font-semibold text-white mb-6">Сравнение систем: OZIZ vs Традиционные городские порталы</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-white/10 text-zinc-400 font-mono text-xs">
+                  <th className="pb-3">Характеристика</th>
+                  <th className="pb-3 text-red-400">Традиционные системы</th>
+                  <th className="pb-3 text-green-400 font-bold">OZIZ Платформа</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {[
+                  ['Неизменяемость лога', 'Данные могут быть удалены или откорректированы в БД', 'Блокчейн Solana — записи неизменяемы и публичны'],
+                  ['Алгоритм приоритета', 'Скрытый или отсутствует («в порядке очереди»)', 'Детерминированная формула (0–100) с открытыми весами'],
+                  ['Верификация ремонта', 'Служба сама ставит отметку «Готово»', 'Подтверждение жителями + авто-переоткрытие при браке'],
+                  ['Защита данных', 'Передача и хранение персональных данных', 'Удаление EXIF, хэширование, анонимность'],
+                ].map(([c, o, z], i) => (
+                  <tr key={i} className="hover:bg-white/[0.02]">
+                    <td className="py-3.5 font-medium text-white">{c}</td>
+                    <td className="py-3.5 text-zinc-400">{o}</td>
+                    <td className="py-3.5 text-zinc-200 font-medium">{z}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </Container>
+    </section>
+  );
+}
+
+function LandingDefectsShowcaseSection() {
+  const defects = [
+    {
+      title: 'Открытый смотровой люк',
+      category: 'open_manhole',
+      score: 98,
+      location: 'ул. Достык, 18',
+      desc: 'Отсутствует чугунная крышка колодца возле пешеходного перехода. Угроза падения детей и пешеходов в темноте.',
+      hazards: ['пешеходы', 'дети'],
+      near: ['школа', 'остановка'],
+    },
+    {
+      title: 'Глубокая яма на проезжей части',
+      category: 'pothole',
+      score: 85,
+      location: 'пр. Кабанбай батыра, 42',
+      desc: 'Разрушение асфальтового покрытия глубиной 14 см. Риск экстренного маневрирования на высокой скорости.',
+      hazards: ['водители', 'велосипедисты'],
+      near: ['автобусная полоса'],
+    },
+    {
+      title: 'Неисправный светофор',
+      category: 'broken_traffic_light',
+      score: 92,
+      location: 'ул. Туран / ул. Сыганак',
+      desc: 'Сбой фаз светофора на ключевом перекрёстке. Блокировка движения в час пик.',
+      hazards: ['водители', 'пешеходы'],
+      near: ['больница', 'остановка'],
+    },
+    {
+      title: 'Поваленное дерево после ветровала',
+      category: 'fallen_tree',
+      score: 68,
+      location: 'ул. Кенесары, 7',
+      desc: 'Крупный ствол перегораживает тротуар и затрудняет проезд автомобилей экстренных служб.',
+      hazards: ['пешеходы'],
+      near: ['жилой дом'],
+    },
+    {
+      title: 'Стихийная свалка крупногабарита',
+      category: 'illegal_dump',
+      score: 55,
+      location: 'мкр. Чубары, ул. Акмешит',
+      desc: 'Строительные отходы во дворе блокируют проезд мусоровозов и спецтехники.',
+      hazards: ['экология'],
+      near: ['детский сад'],
+    },
+  ];
+
+  return (
+    <section id="defect-examples" className="relative z-10 border-t border-white/10 py-20 md:py-28 bg-[#060608]">
+      <Container>
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-12">
+          <div>
+            <div className="mb-2 font-mono text-xs font-semibold tracking-widest text-red-400 uppercase">
+              Примеры городских дефектов
+            </div>
+            <h2 className="text-3xl font-semibold tracking-tight text-white md:text-5xl">
+              Что выявляет ИИ-система OZIZ
+            </h2>
+            <p className="mt-3 max-w-[560px] text-base text-zinc-400">
+              Типовые инциденты, распознаваемые компьютерным зрением с мгновенной оценкой риска
+            </p>
+          </div>
+          <Button variant="secondary" icon="plus" onClick={() => go('/submit')}>
+            Сообщить о своей проблеме
+          </Button>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {defects.map(d => (
+            <div key={d.title} className="group relative rounded-2xl border border-white/10 bg-[#0a0a0c] p-6 shadow-xl transition-all duration-300 hover:border-red-500/50 hover:scale-[1.01]">
+              <div className="flex items-center justify-between gap-3">
+                <span className="rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 font-mono text-xs text-red-400 font-medium">
+                  Оценка {d.score} / 100
+                </span>
+                <span className="font-mono text-xs text-zinc-500">{d.location}</span>
+              </div>
+              <h3 className="mt-4 text-lg font-semibold text-white group-hover:text-red-400 transition-colors">
+                {d.title}
+              </h3>
+              <p className="mt-2 text-xs leading-relaxed text-zinc-400">{d.desc}</p>
+
+              <div className="mt-5 flex flex-wrap items-center gap-2 pt-4 border-t border-white/5 text-[11px] font-mono text-zinc-400">
+                <span className="text-zinc-500">Зона риска:</span>
+                {d.hazards.map(h => (
+                  <span key={h} className="rounded bg-white/5 px-2 py-0.5 text-zinc-300">
+                    {h}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </Container>
+    </section>
+  );
+}
+
 function Landing({ data }: { data: Data }) {
   const t = useT();
   const { reports, services, loading } = data;
@@ -4246,6 +4659,18 @@ function Landing({ data }: { data: Data }) {
           ))}
         </Container>
       </section>
+
+      {/* Interactive Satellite Map Section */}
+      <LandingSatelliteSection reports={reports} />
+
+      {/* Quick Report & Photo Watermark Downloader */}
+      <LandingQuickReportSection />
+
+      {/* Detailed Mission, Pillars & Comparison Table */}
+      <LandingPillarsSection />
+
+      {/* Real Defect Examples Grid */}
+      <LandingDefectsShowcaseSection />
 
       {/* =========================================================================
        * 3. SECTION — ANALYSIS & INSTANT INCIDENT DETECTION
