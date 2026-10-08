@@ -4649,50 +4649,54 @@ function AiDefectSandbox() {
       location: 'ул. Достык, 18',
       score: 98,
       level: 'CRITICAL',
-      confidence: '98.4%',
+      confidence: '0.98',
       model: 'facebook/detr-resnet-50',
-      box: { top: '30%', left: '35%', width: '30%', height: '35%' },
+      image: '/samples/ai_detection_manhole.jpg',
+      box: { top: '38%', left: '38%', width: '28%', height: '26%' },
       hazards: ['пешеходы', 'дети'],
-      desc: 'Обнаружено отсутствие чугунной крышки колодца. Прямая угроза жизни детей и пешеходов.',
+      desc: 'Обнаружено отсутствие чугунной крышки колодца (CLASS: OPEN HOLE). Прямая угроза жизни детей и пешеходов.',
       pdaHash: 'b82E71aK...3fA1c0De',
     },
     {
       id: 'pothole',
-      title: 'Глубокая яма на проезжей части',
-      location: 'пр. Кабанбай батыра, 42',
-      score: 85,
-      level: 'HIGH',
-      confidence: '94.2%',
+      title: 'Разлом проезжей части',
+      location: 'Трасса Астана — Караганда, км 14',
+      score: 96,
+      level: 'CRITICAL',
+      confidence: '0.96',
       model: 'google/vit-base-patch16-224',
-      box: { top: '40%', left: '25%', width: '45%', height: '30%' },
-      hazards: ['водители', 'велосипедисты'],
-      desc: 'Выбоина глубиной 14 см. Высокий риск экстренного маневрирования на скорости.',
+      image: '/samples/defect_road_fault.jpg',
+      box: { top: '35%', left: '20%', width: '60%', height: '40%' },
+      hazards: ['водители', 'пассажиры'],
+      desc: 'Выбоина и расхождение асфальтового слоя. Высокий риск аварийной ситуации на скорости.',
       pdaHash: 'Q9xm4Lp2...7Kd29fQa',
     },
     {
-      id: 'traffic',
-      title: 'Неисправный светофор',
-      location: 'ул. Туран / ул. Сыганак',
-      score: 92,
+      id: 'facade',
+      title: 'Трещина несущей стены',
+      location: 'ул. Сейфуллина, 45',
+      score: 99,
       level: 'CRITICAL',
-      confidence: '96.1%',
+      confidence: '0.99',
       model: 'facebook/detr-resnet-50',
-      box: { top: '20%', left: '40%', width: '20%', height: '40%' },
-      hazards: ['водители', 'пешеходы'],
-      desc: 'Отключена секция регулировки фаз. Риск столкновения транспортных потоков.',
+      image: '/samples/defect_facade_crack.jpg',
+      box: { top: '10%', left: '32%', width: '25%', height: '75%' },
+      hazards: ['жильцы', 'пешеходы'],
+      desc: 'Сквозное разрушение кирпичной кладки фасада. Угроза обрушения стен на прохожих.',
       pdaHash: '7Kd29fQa...b82E71aK',
     },
     {
-      id: 'dump',
-      title: 'Стихийная свалка мусора',
-      location: 'мкр. Чубары, ул. Акмешит',
-      score: 55,
-      level: 'MEDIUM',
-      confidence: '91.5%',
+      id: 'curb',
+      title: 'Провал ливнёвки у бордюра',
+      location: 'пр. Кабанбай батыра, 12',
+      score: 88,
+      level: 'HIGH',
+      confidence: '0.92',
       model: 'google/vit-base-patch16-224',
-      box: { top: '35%', left: '20%', width: '50%', height: '40%' },
-      hazards: ['экология'],
-      desc: 'Сброс строительных отходов во дворе. Заблокирован проезд коммунальной техники.',
+      image: '/samples/defect_curb_collapse.jpg',
+      box: { top: '45%', left: '25%', width: '45%', height: '35%' },
+      hazards: ['водители', 'велосипедисты'],
+      desc: 'Обвал покрытия у края дороги с промытой пустотой под асфальтом.',
       pdaHash: '3fA1c0De...Q9xm4Lp2',
     },
   ];
@@ -4705,10 +4709,11 @@ function AiDefectSandbox() {
         <div className="rounded-2xl border border-white/10 bg-[#08080b] p-6 shadow-2xl backdrop-blur-xl">
           <div className="flex flex-wrap items-center justify-between gap-3 pb-5 border-b border-white/10">
             <div>
-              <div className="font-mono text-xs font-semibold text-amber-400 uppercase tracking-wider">
-                Интерактивный ИИ-сканер
+              <div className="font-mono text-xs font-semibold text-amber-400 uppercase tracking-wider flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-amber-400 animate-ping" />
+                Интерактивный ИИ-сканер детекции
               </div>
-              <h3 className="text-xl font-semibold text-white mt-0.5">Симуляция распознавания инцидентов</h3>
+              <h3 className="text-xl font-semibold text-white mt-0.5">Симуляция нейросетевого распознавания</h3>
             </div>
             <div className="flex flex-wrap gap-2">
               {defects.map((d, i) => (
@@ -4723,34 +4728,43 @@ function AiDefectSandbox() {
                       : 'bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white'
                   )}
                 >
-                  {d.title.split(' ')[0]} {d.title.split(' ')[1]}
+                  {d.title}
                 </button>
               ))}
             </div>
           </div>
 
           <div className="mt-6 grid gap-6 lg:grid-cols-12 items-center">
-            {/* Visual Inspection Screen */}
+            {/* Visual Inspection Screen with Real AI detection photo */}
             <div className="lg:col-span-7">
-              <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-white/10 bg-[#0c0c10] shadow-inner">
-                {/* Dark grid background */}
-                <div className="absolute inset-0 bg-[radial-gradient(#ffffff0a_1px,transparent_1px)] [background-size:16px_16px]" />
+              <div className="relative aspect-[4/3] sm:aspect-video w-full overflow-hidden rounded-xl border border-white/10 bg-black shadow-2xl">
+                <img
+                  src={cur.image}
+                  alt="AI Detection View"
+                  className="h-full w-full object-cover transition-all duration-500 opacity-95"
+                />
+
+                {/* Animated laser scan line */}
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-red-500 to-transparent opacity-90 animate-scan shadow-[0_0_15px_#ef4444]" />
 
                 {/* Bounding Box overlay */}
                 <div
                   style={cur.box}
-                  className="absolute border-2 border-amber-400 bg-amber-500/10 rounded-lg transition-all duration-500 animate-pulse shadow-[0_0_20px_rgba(245,158,11,0.3)]"
+                  className="absolute border-2 border-red-500 bg-red-500/15 rounded-lg transition-all duration-500 animate-pulse shadow-[0_0_25px_rgba(239,68,68,0.5)]"
                 >
-                  <div className="absolute -top-6 left-0 rounded bg-amber-500 px-2 py-0.5 font-mono text-[10px] font-bold text-black uppercase tracking-wider shadow">
-                    AI DETECTED: {cur.confidence}
+                  <div className="absolute -top-7 left-0 rounded bg-red-600 px-2.5 py-0.5 font-mono text-[10px] font-bold text-white uppercase tracking-wider shadow flex items-center gap-1">
+                    <Icon name="alert" size={12} />
+                    DANGER: {cur.id.toUpperCase()} {cur.confidence}
                   </div>
                 </div>
 
-                {/* Corner Markers */}
-                <div className="absolute top-3 left-3 font-mono text-[11px] text-zinc-500">CAMERA_FEED_01 // ASTANA</div>
-                <div className="absolute bottom-3 left-3 font-mono text-[11px] text-amber-400 flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-amber-400 animate-ping" />
-                  LIVE OBJECT RECOGNITION
+                {/* Corner HUD Telemetry Overlays */}
+                <div className="absolute top-3 left-3 font-mono text-[11px] text-red-400 font-bold bg-black/80 px-3 py-1 rounded border border-white/10 backdrop-blur-md">
+                  AI ANALYSIS // 43.2387° N 76.8897° E
+                </div>
+                <div className="absolute bottom-3 left-3 font-mono text-[11px] text-emerald-400 flex items-center gap-1.5 bg-black/80 px-3 py-1 rounded border border-white/10 backdrop-blur-md">
+                  <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
+                  SCAN AREA: 12x12 m · OBJECTS: 1
                 </div>
               </div>
             </div>
@@ -4759,12 +4773,12 @@ function AiDefectSandbox() {
             <div className="lg:col-span-5 space-y-4">
               <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
                 <div className="flex items-center justify-between text-xs font-mono text-zinc-400">
-                  <span>Приоритет дефекта</span>
-                  <span className="text-amber-400 font-bold">{cur.score} / 100</span>
+                  <span>Оценка риска ИИ</span>
+                  <span className="text-amber-400 font-bold">{cur.score} / 100 ({cur.level})</span>
                 </div>
-                <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/10">
+                <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-white/10">
                   <div
-                    className="h-full bg-gradient-to-r from-amber-500 to-red-500 transition-all duration-700"
+                    className="h-full bg-gradient-to-r from-amber-500 to-red-600 transition-all duration-700"
                     style={{ width: `${cur.score}%` }}
                   />
                 </div>
