@@ -101,7 +101,7 @@ const FACTORS: Array<[keyof PriorityBreakdown['factors'], string]> = [
 const DISTRICTS = ['Есильский район', 'Алматинский район', 'Сарыаркинский район', 'Байконурский район'];
 const PROGRAM_ID = '33ad7sLpmDbJuLxv9FYSFz1vFzV4HsTy6kmyeC8Lvj4K';
 const SOLANA_MEMO_PROGRAM_ID = 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr';
-const SOLANA_DEVNET_RPC = 'https://api.devnet.solana.com';
+const SOLANA_DEVNET_RPC = (import.meta as any).env?.VITE_SOLANA_RPC || 'https://api.devnet.solana.com';
 
 interface SolanaMemoRecord {
   id: string;
@@ -229,18 +229,80 @@ function getDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: numbe
 }
 
 function hashHex(input: string, len = 64): string {
-  let h = 0x811c9dc5;
-  let out = '';
-  let round = 0;
-  while (out.length < len) {
-    for (let i = 0; i < input.length; i++) {
-      h ^= input.charCodeAt(i) + round * 31;
-      h = Math.imul(h, 16777619);
-    }
-    out += (h >>> 0).toString(16).padStart(8, '0');
-    round++;
+  // Fast synchronous SHA-256 implementation (SHA-256 algorithm)
+  const mathPow = Math.pow;
+  const maxWord = mathPow(2, 32);
+  const lengthProperty = 'length';
+  let i, j;
+  let result = '';
+
+  const words: number[] = [];
+  const asciiBitLength = input[lengthProperty] * 8;
+
+  let hash: number[] = [
+    0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+    0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
+  ];
+
+  const k: number[] = [
+    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+  ];
+
+  for (i = 0; i < input[lengthProperty]; i++) {
+    j = input.charCodeAt(i);
+    words[i >> 2] |= j << ((3 - (i % 4)) * 8);
   }
-  return out.slice(0, len);
+  words[asciiBitLength >> 5] |= 0x80 << (24 - (asciiBitLength % 32));
+  words[(((asciiBitLength + 64) >> 9) << 4) + 15] = asciiBitLength;
+
+  const w: number[] = [];
+  for (i = 0; i < words[lengthProperty]; i += 16) {
+    const oldHash = hash.slice(0);
+    for (j = 0; j < 64; j++) {
+      let wJ = words[i + j];
+      if (j < 16) {
+        w[j] = wJ;
+      } else {
+        const s0 = (w[j - 15] >>> 7 | w[j - 15] << 25) ^ (w[j - 15] >>> 18 | w[j - 15] << 14) ^ (w[j - 15] >>> 3);
+        const s1 = (w[j - 2] >>> 17 | w[j - 2] << 15) ^ (w[j - 2] >>> 19 | w[j - 2] << 13) ^ (w[j - 2] >>> 10);
+        w[j] = (w[j - 16] + s0 + w[j - 7] + s1) | 0;
+      }
+
+      const s1 = (hash[4] >>> 6 | hash[4] << 26) ^ (hash[4] >>> 11 | hash[4] << 21) ^ (hash[4] >>> 25 | hash[4] << 7);
+      const ch = (hash[4] & hash[5]) ^ (~hash[4] & hash[6]);
+      const temp1 = (hash[7] + s1 + ch + k[j] + (w[j] | 0)) | 0;
+      const s0 = (hash[0] >>> 2 | hash[0] << 30) ^ (hash[0] >>> 13 | hash[0] << 19) ^ (hash[0] >>> 22 | hash[0] << 10);
+      const maj = (hash[0] & hash[1]) ^ (hash[0] & hash[2]) ^ (hash[1] & hash[2]);
+      const temp2 = (s0 + maj) | 0;
+
+      hash[7] = hash[6];
+      hash[6] = hash[5];
+      hash[5] = hash[4];
+      hash[4] = (hash[3] + temp1) | 0;
+      hash[3] = hash[2];
+      hash[2] = hash[1];
+      hash[1] = hash[0];
+      hash[0] = (temp1 + temp2) | 0;
+    }
+    for (j = 0; j < 8; j++) {
+      hash[j] = (hash[j] + oldHash[j]) | 0;
+    }
+  }
+
+  for (i = 0; i < 8; i++) {
+    for (j = 3; j >= 0; j--) {
+      const b = (hash[i] >> (j * 8)) & 255;
+      result += (b < 16 ? '0' : '') + b.toString(16);
+    }
+  }
+  return result.slice(0, len);
 }
 const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 function toB58(seed: string, len = 88): string {
@@ -653,9 +715,32 @@ async function api(path: string, init?: RequestInit) {
     ...init,
     headers: init?.body ? { 'Content-Type': 'application/json', ...(init?.headers || {}) } : init?.headers,
   });
+  const contentType = r.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    throw new Error(`Non-JSON response received from ${path} (${r.status})`);
+  }
   const d = await r.json().catch(() => ({}));
   if (!r.ok || d.success === false) throw new Error(d.error || `HTTP ${r.status}`);
   return d;
+}
+
+const LOCAL_STORAGE_DEMO_REPORTS_KEY = 'oziz_demo_reports_v1';
+
+function loadDemoReports(): CivicAppeal[] {
+  try {
+    const stored = localStorage.getItem(LOCAL_STORAGE_DEMO_REPORTS_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+  return MOCK_APPEALS;
+}
+
+function saveDemoReports(reports: CivicAppeal[]) {
+  try {
+    localStorage.setItem(LOCAL_STORAGE_DEMO_REPORTS_KEY, JSON.stringify(reports));
+  } catch {}
 }
 
 function useOzizData() {
@@ -668,16 +753,38 @@ function useOzizData() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      const params = new URLSearchParams(window.location.search);
+      const forceDemo = params.get('demo') === '1' || params.has('demo');
+      const forceReset = params.get('reset') === '1' || params.has('reset');
+
+      if (forceReset) {
+        try {
+          localStorage.removeItem(LOCAL_STORAGE_DEMO_REPORTS_KEY);
+        } catch {}
+      }
+
+      if (forceDemo || forceReset) {
+        if (cancelled) return;
+        setReports(MOCK_APPEALS);
+        setServices(Array.isArray(MOCK_SERVICES) ? MOCK_SERVICES : []);
+        setSource('demo');
+        setLoading(false);
+        return;
+      }
+
       try {
         const [rd, sd] = await Promise.all([api('/api/reports'), api('/api/services')]);
         if (cancelled) return;
+        if (!Array.isArray(rd?.reports) || !Array.isArray(sd?.services)) {
+          throw new Error('API returned invalid non-array structure');
+        }
         setReports(rd.reports);
         setServices(sd.services);
         setSource('api');
       } catch {
         if (cancelled) return;
-        setReports(MOCK_APPEALS);
-        setServices(MOCK_SERVICES);
+        setReports(loadDemoReports());
+        setServices(Array.isArray(MOCK_SERVICES) ? MOCK_SERVICES : []);
         setSource('demo');
       } finally {
         if (!cancelled) setLoading(false);
@@ -687,6 +794,11 @@ function useOzizData() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (loading || source !== 'demo') return;
+    saveDemoReports(reports);
+  }, [reports, source, loading]);
 
   useEffect(() => {
     if (loading || source !== 'api' || typeof EventSource === 'undefined') return;
@@ -942,6 +1054,7 @@ const ICONS: Record<string, React.ReactNode> = {
   crosshair: <><circle cx="12" cy="12" r="7" /><path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4" /></>,
   bell: <><path d="M6 16.5V11a6 6 0 1 1 12 0v5.5l1.5 2h-15l1.5-2Z" /><path d="M10 20.5a2 2 0 0 0 4 0" /></>,
   download: <><path d="M12 4v11" /><path d="m7.5 10.5 4.5 4.5 4.5-4.5" /><path d="M4.5 19.5h15" /></>,
+  upload: <><path d="M12 15V4" /><path d="m7.5 8.5 4.5-4.5 4.5 4.5" /><path d="M4.5 19.5h15" /></>,
   inbox: <><path d="M3.5 13.5 6 5.5h12l2.5 8v5a1 1 0 0 1-1 1h-15a1 1 0 0 1-1-1v-5Z" /><path d="M3.5 13.5H8l1.5 2.5h5l1.5-2.5h4.5" /></>,
   chart: <><path d="M4 4v16h16" /><path d="m7.5 14 3.5-4 3 2.5L19 7" /></>,
   user: <><circle cx="12" cy="8.5" r="3.5" /><path d="M5 20c.8-3.5 3.6-5.5 7-5.5s6.2 2 7 5.5" /></>,
@@ -4583,11 +4696,11 @@ function AuthScreen({ onAuth }: { onAuth: (u: { name: string; contact: string })
                   <span className="h-px flex-1 bg-line" />
                 </div>
                 <div className="space-y-2">
-                  <Button block icon="globe" onClick={() => toast('Вход через Google будет доступен после подключения OAuth')}>
-                    Войти через Google
+                  <Button block icon="globe" onClick={() => toast('Вход через Google: Скоро в v2.0 (OAuth)')}>
+                    Google (Скоро)
                   </Button>
-                  <Button block icon="send" onClick={() => toast('Вход через Telegram будет доступен после подключения бота')}>
-                    Войти через Telegram
+                  <Button block icon="send" onClick={() => toast('Вход через Telegram: Скоро в v2.0 (Bot Auth)')}>
+                    Telegram (Скоро)
                   </Button>
                 </div>
                 <button type="button" onClick={() => go('/submit')} className="t mt-6 flex w-full items-center justify-center gap-1.5 text-[13px] font-medium text-fg2 hover:text-accent">
@@ -4716,6 +4829,7 @@ function SubmitScreen({ data }: { data: Data }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recRef = useRef<any>(null);
   const [dragOver, setDragOver] = useState(false);
+  const pinDebounceRef = useRef<any>(null);
 
   const handleFile = async (f?: File | null) => {
     if (!f) return;
@@ -4731,13 +4845,16 @@ function SubmitScreen({ data }: { data: Data }) {
     }
   };
 
-  const handlePinChange = async (newPos: { lat: number; lng: number }) => {
+  const handlePinChange = (newPos: { lat: number; lng: number }) => {
     setPos(newPos);
-    const geo = await reverseGeocode(newPos.lat, newPos.lng);
-    if (geo) {
-      if (geo.address) setAddress(geo.address);
-      if (geo.district) setDistrict(geo.district);
-    }
+    if (pinDebounceRef.current) clearTimeout(pinDebounceRef.current);
+    pinDebounceRef.current = setTimeout(async () => {
+      const geo = await reverseGeocode(newPos.lat, newPos.lng);
+      if (geo) {
+        if (geo.address) setAddress(geo.address);
+        if (geo.district) setDistrict(geo.district);
+      }
+    }, 600);
   };
 
   const locate = () => {
@@ -4954,12 +5071,9 @@ function SubmitScreen({ data }: { data: Data }) {
                       key={ex.cat}
                       type="button"
                       onClick={() => {
-                        const img = SEED_PHOTOS[ex.cat];
+                        const sample = makeSamplePhoto();
                         setPhoto({
-                          dataUrl: img,
-                          w: 1200,
-                          h: 800,
-                          bytes: 245000,
+                          ...sample,
                           name: `${ex.label}.jpg`,
                         });
                       }}
@@ -5173,7 +5287,7 @@ function SubmitResult({ data, payload, onRestart }: { data: Data; payload: Param
             </p>
 
             <SolanaMemoActionBox
-              defaultText={`OZIZ #${result.short_code}: ${result.title} [${result.context.location.address}]`}
+              defaultText={`OZIZ|${result.short_code}|${result.events[result.events.length - 1]?.event_hash || result.media_sha256}`}
               reportCode={result.short_code}
             />
           </Card>
@@ -5404,9 +5518,9 @@ function MapScreen({ data }: { data: Data }) {
             <div className="flex items-start gap-2.5 min-w-0">
               <span className="mt-1 flex h-2 w-2 shrink-0 rounded-full bg-crit animate-ping" />
               <div className="min-w-0 text-xs">
-                <span className="font-semibold text-fg">Акимат г. Астана · Оповещение ГО и ЧС: </span>
+                <span className="font-semibold text-fg">Акимат г. Астана · Оперативное оповещение: </span>
                 <span className="text-fg2">Штормовой ветер с порывами до 24 м/с. Проверьте фасадные зоны, слабо закреплённые конструкции и открытые колодцы. </span>
-                <span className="tnum font-mono text-[11px] text-fg3">Solana tx: 4Zp8...91aK (Подписано dGov.sol)</span>
+                <span className="tnum font-mono text-[11px] text-fg3">(Служба ЧС 112)</span>
               </div>
             </div>
             <IconButton icon="x" size={24} label="Закрыть оповещение" onClick={() => setAlertDismissed(true)} />
@@ -5907,23 +6021,23 @@ function AppealPage({ data, id }: { data: Data; id: string }) {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Icon name="shield" size={20} className="text-fg2" />
-                  <h2 className="text-[18px] font-semibold tight">Проверено в реестре Solana</h2>
+                  <h2 className="text-[18px] font-semibold tight">Запись в публичном реестре Solana</h2>
                 </div>
                 <span className="rounded-full border border-line bg-bg2 px-2.5 py-0.5 text-[11px] font-mono text-fg2">
-                  Bubblegum cNFT
+                  SPL Memo (Devnet)
                 </span>
               </div>
               <div className="mt-3">
                 <KV
                   rows={[
-                    ['Тип записи', 'State Compression (cNFT)'],
+                    ['Формат записи', 'SPL Memo Instruction'],
                     ['Аккаунт заявки (PDA)', <HashLabel value={r.onchain.report_pda} />],
                     ['Транзакция в блоке', <HashLabel value={r.onchain.tx_signature} />],
                     ['Хэш фото (SHA-256)', <HashLabel value={r.onchain.media_sha256 || r.media_sha256} />],
-                    ['Дерево Меркла', <HashLabel value="7wQbBubblegumConcurrentTree1111" />],
-                    ['Индекс листа', <span className="tnum font-mono text-xs">#{r.short_code.replace(/\D/g, '') || '1042'} (глубина 20)</span>],
-                    ['Стоимость записи', <span className="tnum font-mono text-xs text-ok">0.000005 SOL (~$0.0007)</span>],
+                    ['Хэш описания (SHA-256)', <HashLabel value={r.onchain.text_sha256} />],
+                    ['Сеть блокчейн', <span className="tnum font-mono text-xs text-ok">Solana Devnet</span>],
                     ['Событий в цепочке', <span className="tnum font-mono">{r.events.length}</span>],
+                    ['Дорожная карта', <span className="text-xs text-fg3 font-mono">cNFT / Merkle Tree в v2.0</span>],
                   ]}
                 />
               </div>
@@ -5970,7 +6084,7 @@ function AppealPage({ data, id }: { data: Data; id: string }) {
                 <span className="text-[13px] text-fg2">видят эту проблему</span>
               </div>
               <div className="mt-2 text-xs text-fg3 font-mono">
-                Вес голоса: <span className="text-accent font-medium">3.4x</span> (CitizenReputation PDA: 680)
+                Гражданский кворум: <span className="text-accent font-medium">1 подтверждение = +0.15 к приоритету</span>
               </div>
               {!CLOSED.includes(r.status) && (
                 <Button
@@ -6707,12 +6821,27 @@ export default function App() {
     }
   };
 
-  // Eager balance check if address is restored
+  // Eager balance check & trusted auto-connect
   useEffect(() => {
-    if (walletAddress) {
+    const provider = getPhantomProvider();
+    if (provider && provider.isPhantom) {
+      provider
+        .connect({ onlyIfTrusted: true })
+        .then((resp: any) => {
+          if (resp?.publicKey) {
+            const pubkey = resp.publicKey.toString();
+            setWalletAddress(pubkey);
+            localStorage.setItem('oziz-solana-wallet-address', pubkey);
+            refreshBalance(pubkey);
+          }
+        })
+        .catch(() => {
+          if (walletAddress) refreshBalance(walletAddress);
+        });
+    } else if (walletAddress) {
       refreshBalance(walletAddress);
     }
-  }, [walletAddress]);
+  }, []);
 
   // Handle provider events
   useEffect(() => {
