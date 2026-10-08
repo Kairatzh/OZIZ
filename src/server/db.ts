@@ -4,6 +4,8 @@
  */
 
 import { EventEmitter } from 'events';
+import fs from 'fs';
+import path from 'path';
 import {
   AppealCategory,
   AppealStatus,
@@ -592,8 +594,59 @@ export function initSeedData() {
   });
 }
 
-// Initialise seed data on module import
-initSeedData();
+const DATA_DIR = path.resolve(process.cwd(), 'data');
+const DATA_FILE = path.resolve(DATA_DIR, 'appeals.json');
+
+export function persistAppealsToDisk(): void {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    const tmpFile = `${DATA_FILE}.tmp.${Date.now()}`;
+    fs.writeFileSync(tmpFile, JSON.stringify(appealsStore, null, 2), 'utf-8');
+    fs.renameSync(tmpFile, DATA_FILE);
+  } catch (err) {
+    console.error('[DB] Failed to persist appeals to disk:', err);
+  }
+}
+
+export function loadAppealsFromDisk(): void {
+  try {
+    if (fs.existsSync(DATA_FILE)) {
+      const raw = fs.readFileSync(DATA_FILE, 'utf-8');
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        appealsStore = parsed;
+        console.log(`[DB] Successfully loaded ${appealsStore.length} persistent appeals from ${DATA_FILE}`);
+        return;
+      }
+    }
+  } catch (err) {
+    console.warn('[DB] Failed reading appeals.json, falling back to seed initialization:', err);
+  }
+
+  // Fallback: initialize seeds and persist
+  initSeedData();
+  persistAppealsToDisk();
+  console.log(`[DB] Initialized ${appealsStore.length} seed appeals and saved to disk.`);
+}
+
+export function getDbStats() {
+  let fileSizeBytes = 0;
+  try {
+    if (fs.existsSync(DATA_FILE)) {
+      fileSizeBytes = fs.statSync(DATA_FILE).size;
+    }
+  } catch {}
+  return {
+    dataFile: DATA_FILE,
+    totalReports: appealsStore.length,
+    fileSizeBytes,
+  };
+}
+
+// Initialise persistent or seed data on module import
+loadAppealsFromDisk();
 
 // Access methods
 export function getReports(filters?: {
@@ -642,6 +695,7 @@ export function getReportById(id: string): CivicAppeal | undefined {
 
 export function addReport(report: CivicAppeal): CivicAppeal {
   appealsStore.unshift(report);
+  persistAppealsToDisk();
   civicEventBus.emit('report:created', report);
   return report;
 }
@@ -684,6 +738,7 @@ export function updateReportStatusInDb(
     report.resolution_note = note;
   }
 
+  persistAppealsToDisk();
   civicEventBus.emit('report:updated', report);
   return report;
 }
@@ -705,6 +760,7 @@ export function incrementConfirmationInDb(id: string): CivicAppeal | null {
     report.priority.level = 'HIGH';
   }
 
+  persistAppealsToDisk();
   civicEventBus.emit('report:confirmed', report);
   return report;
 }
@@ -731,6 +787,7 @@ export function castResolutionVoteInDb(id: string, isFixed: boolean): CivicAppea
     }
   }
 
+  persistAppealsToDisk();
   civicEventBus.emit('report:voted', report);
   return report;
 }
