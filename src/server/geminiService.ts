@@ -51,18 +51,20 @@ const SYSTEM_INSTRUCTION = `Ты — экспертная система ИИ-в
 async function analyzeWithHuggingFace(cleanBase64: string): Promise<{ detectedObjects: string[]; hfConfidence?: number } | null> {
   try {
     const imgBuffer = Buffer.from(cleanBase64, 'base64');
+    const blob = new Blob([imgBuffer]);
     // Using lightweight, fast object detection model (facebook/detr-resnet-50 or google/vit-base-patch16-224)
     const objects = await Promise.race([
       hf.objectDetection({
         model: 'facebook/detr-resnet-50',
-        data: imgBuffer,
-      }),
+        data: blob,
+        inputs: blob,
+      } as any),
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error('HF timeout')), 4000)),
     ]);
 
     if (Array.isArray(objects) && objects.length > 0) {
-      const labels = Array.from(new Set(objects.filter(o => o.score > 0.4).map(o => o.label)));
-      const topScore = Math.max(...objects.map(o => o.score));
+      const labels = Array.from(new Set(objects.filter((o: any) => o.score > 0.4).map((o: any) => o.label)));
+      const topScore = Math.max(...objects.map((o: any) => o.score));
       return {
         detectedObjects: labels.length > 0 ? labels : [objects[0].label],
         hfConfidence: topScore,
@@ -72,16 +74,18 @@ async function analyzeWithHuggingFace(cleanBase64: string): Promise<{ detectedOb
     // Attempt fast image classification if object detection is unavailable
     try {
       const imgBuffer = Buffer.from(cleanBase64, 'base64');
+      const blob = new Blob([imgBuffer]);
       const classification = await Promise.race([
         hf.imageClassification({
           model: 'google/vit-base-patch16-224',
-          data: imgBuffer,
-        }),
+          data: blob,
+          inputs: blob,
+        } as any),
         new Promise<never>((_, reject) => setTimeout(() => reject(new Error('HF Classify timeout')), 3000)),
       ]);
 
       if (Array.isArray(classification) && classification.length > 0) {
-        const topLabels = classification.slice(0, 3).map(c => c.label);
+        const topLabels = classification.slice(0, 3).map((c: any) => c.label);
         return {
           detectedObjects: topLabels,
           hfConfidence: classification[0].score,
