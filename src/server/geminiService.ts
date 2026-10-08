@@ -52,14 +52,22 @@ export async function analyzeCivicReport(
 ): Promise<AiAnalysisResult> {
   // Clean base64 if it has data URL prefix
   const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+  const activeKey = process.env.GEMINI_API_KEY;
+  const activeAi = (activeKey && activeKey !== 'MY_GEMINI_API_KEY')
+    ? new GoogleGenAI({ apiKey: activeKey, httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } })
+    : ai;
 
-  if (ai) {
+  if (activeAi) {
     try {
       const prompt = `Проанализируй данное фото городского обращения.
 Текст гражданина: "${userText || 'Без описания'}"
 Координаты: ${coords ? `${coords.lat}, ${coords.lng}` : 'Не указаны'}`;
 
-      const response = await ai.models.generateContent({
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Gemini API timed out (5s)')), 5000)
+      );
+
+      const generatePromise = activeAi.models.generateContent({
         model: 'gemini-3.8-flash',
         contents: {
           parts: [
@@ -150,13 +158,15 @@ export async function analyzeCivicReport(
         },
       });
 
+      const response: any = await Promise.race([generatePromise, timeoutPromise]);
+
       const text = response.text;
       if (text) {
         const parsed = JSON.parse(text);
         return normalizeAiOutput(parsed);
       }
-    } catch (err) {
-      console.warn('Gemini vision API error or timeout, switching to resilient heuristic parser:', err);
+    } catch (err: any) {
+      console.warn('Gemini vision API error or timeout, switching to resilient heuristic parser:', err?.message || err);
     }
   }
 
