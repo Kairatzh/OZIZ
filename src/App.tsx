@@ -4443,99 +4443,196 @@ function LandingPillarsSection() {
   );
 }
 
-function LandingDefectsShowcaseSection() {
+function LandingDefectsCarouselSection() {
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+
   const defects = [
     {
-      title: 'Открытый смотровой люк',
-      category: 'open_manhole',
+      id: 'crack',
+      title: 'Сквозная трещина несущего фасада',
+      category: 'Аварийное здание',
+      score: 99,
+      level: 'CRITICAL',
+      location: 'ул. Сейфуллина, 45',
+      image: '/samples/defect_facade_crack.jpg',
+      hazard: 'Обрушение стены',
+      harm: 'Опасность обрушения кирпичной кладки фасада на жильцов и прохожих. Риск критических разрушений.',
+      tags: ['жильцы', 'пешеходы', 'фасад'],
+    },
+    {
+      id: 'fault',
+      title: 'Глубокий разлом проезжей части',
+      category: 'Разлом полотна',
+      score: 96,
+      level: 'CRITICAL',
+      location: 'Трасса Астана — Караганда, км 14',
+      image: '/samples/defect_road_fault.jpg',
+      hazard: 'Катастрофическое ДТП',
+      harm: 'Смещение слоев асфальта с разрывом полос. Высокий риск опрокидывания транспорта на скорости.',
+      tags: ['водители', 'пассажиры', 'трасса'],
+    },
+    {
+      id: 'curb',
+      title: 'Провал ливнёвки и оседание дороги',
+      category: 'Обвал бордюра',
+      score: 88,
+      level: 'HIGH',
+      location: 'пр. Кабанбай батыра, 12',
+      image: '/samples/defect_curb_collapse.jpg',
+      hazard: 'Провал колеса авто',
+      harm: 'Обрыв края дороги со скрытой подмытой пустотой. Риск внезапного провала транспорта при маневре.',
+      tags: ['водители', 'велосипедисты'],
+    },
+    {
+      id: 'tile',
+      title: 'Разрушение тротуарной плитки',
+      category: 'Провал брусчатки',
+      score: 75,
+      level: 'HIGH',
+      location: 'ул. Бейбитшилик, 8',
+      image: '/samples/defect_tile_hole.jpg',
+      hazard: 'Травмы пешеходов',
+      harm: 'Острые сколы гранитного покрытия и ямы на тротуаре. Высокий риск падений и травм пожилых и детей.',
+      tags: ['пешеходы', 'дети', 'коляски'],
+    },
+    {
+      id: 'manhole',
+      title: 'Открытый смотровой колодец',
+      category: 'Опасный люк',
       score: 98,
+      level: 'CRITICAL',
       location: 'ул. Достык, 18',
-      desc: 'Отсутствует чугунная крышка колодца возле пешеходного перехода. Угроза падения детей и пешеходов в темноте.',
-      hazards: ['пешеходы', 'дети'],
-      near: ['школа', 'остановка'],
-    },
-    {
-      title: 'Глубокая яма на проезжей части',
-      category: 'pothole',
-      score: 85,
-      location: 'пр. Кабанбай батыра, 42',
-      desc: 'Разрушение асфальтового покрытия глубиной 14 см. Риск экстренного маневрирования на высокой скорости.',
-      hazards: ['водители', 'велосипедисты'],
-      near: ['автобусная полоса'],
-    },
-    {
-      title: 'Неисправный светофор',
-      category: 'broken_traffic_light',
-      score: 92,
-      location: 'ул. Туран / ул. Сыганак',
-      desc: 'Сбой фаз светофора на ключевом перекрёстке. Блокировка движения в час пик.',
-      hazards: ['водители', 'пешеходы'],
-      near: ['больница', 'остановка'],
-    },
-    {
-      title: 'Поваленное дерево после ветровала',
-      category: 'fallen_tree',
-      score: 68,
-      location: 'ул. Кенесары, 7',
-      desc: 'Крупный ствол перегораживает тротуар и затрудняет проезд автомобилей экстренных служб.',
-      hazards: ['пешеходы'],
-      near: ['жилой дом'],
-    },
-    {
-      title: 'Стихийная свалка крупногабарита',
-      category: 'illegal_dump',
-      score: 55,
-      location: 'мкр. Чубары, ул. Акмешит',
-      desc: 'Строительные отходы во дворе блокируют проезд мусоровозов и спецтехники.',
-      hazards: ['экология'],
-      near: ['детский сад'],
+      image: '/samples/before_manhole.jpg',
+      hazard: 'Падение в шахту',
+      harm: 'Отсутствие защитной крышки над 3-метровым колодцем. Прямая угроза жизни детей в тёмное время суток.',
+      tags: ['дети', 'пешеходы'],
     },
   ];
 
+  // Auto scroll ring logic
+  useEffect(() => {
+    if (isPaused) return;
+    const timer = setInterval(() => {
+      setActiveIdx(prev => (prev + 1) % defects.length);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [isPaused, defects.length]);
+
+  const prevCard = () => setActiveIdx(i => (i - 1 + defects.length) % defects.length);
+  const nextCard = () => setActiveIdx(i => (i + 1) % defects.length);
+
   return (
-    <section id="defect-examples" className="relative z-10 border-t border-white/10 py-20 md:py-28 bg-[#060608]">
+    <section
+      id="dangerous-defects"
+      className="relative z-10 border-t border-white/10 py-20 md:py-28 bg-[#040406] overflow-hidden"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+    >
       <Container>
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-12">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-10">
           <div>
-            <div className="mb-2 font-mono text-xs font-semibold tracking-widest text-red-400 uppercase">
-              Примеры городских дефектов
+            <div className="mb-2.5 font-mono text-xs font-semibold tracking-widest text-amber-400 uppercase flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-amber-400 animate-ping" />
+              Каталог критических дефектов и угроз
             </div>
             <h2 className="text-3xl font-semibold tracking-tight text-white md:text-5xl">
-              Что выявляет ИИ-система OZIZ
+              Опасности, требующие мгновенного ИИ-выявления
             </h2>
-            <p className="mt-3 max-w-[560px] text-base text-zinc-400">
-              Типовые инциденты, распознаваемые компьютерным зрением с мгновенной оценкой риска
+            <p className="mt-3 max-w-[620px] text-base text-zinc-400">
+              Интерактивная галерея реальных повреждений городской инфраструктуры, наносящих вред людям и транспорту.
             </p>
           </div>
-          <Button variant="secondary" icon="plus" onClick={() => go('/submit')}>
-            Сообщить о своей проблеме
-          </Button>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={prevCard}
+              className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white hover:bg-white/10 hover:border-amber-400/40 transition-all"
+              aria-label="Предыдущий дефект"
+            >
+              <Icon name="arrowLeft" size={18} />
+            </button>
+            <span className="font-mono text-xs text-amber-400 font-bold px-1">
+              {activeIdx + 1} / {defects.length}
+            </span>
+            <button
+              type="button"
+              onClick={nextCard}
+              className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white hover:bg-white/10 hover:border-amber-400/40 transition-all"
+              aria-label="Следующий дефект"
+            >
+              <Icon name="arrowRight" size={18} />
+            </button>
+          </div>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {defects.map(d => (
-            <div key={d.title} className="group relative rounded-2xl border border-white/10 bg-[#0a0a0c] p-6 shadow-xl transition-all duration-300 hover:border-red-500/50 hover:scale-[1.01]">
-              <div className="flex items-center justify-between gap-3">
-                <span className="rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 font-mono text-xs text-red-400 font-medium">
-                  Оценка {d.score} / 100
-                </span>
-                <span className="font-mono text-xs text-zinc-500">{d.location}</span>
-              </div>
-              <h3 className="mt-4 text-lg font-semibold text-white group-hover:text-red-400 transition-colors">
-                {d.title}
-              </h3>
-              <p className="mt-2 text-xs leading-relaxed text-zinc-400">{d.desc}</p>
+        {/* Circular Horizontal Carousel Container */}
+        <div className="relative overflow-hidden py-4">
+          <div className="flex items-center justify-center gap-6">
+            {defects.map((item, idx) => {
+              const diff = (idx - activeIdx + defects.length) % defects.length;
+              const relativeIdx = diff > defects.length / 2 ? diff - defects.length : diff;
 
-              <div className="mt-5 flex flex-wrap items-center gap-2 pt-4 border-t border-white/5 text-[11px] font-mono text-zinc-400">
-                <span className="text-zinc-500">Зона риска:</span>
-                {d.hazards.map(h => (
-                  <span key={h} className="rounded bg-white/5 px-2 py-0.5 text-zinc-300">
-                    {h}
-                  </span>
-                ))}
-              </div>
-            </div>
-          ))}
+              const isCurrent = relativeIdx === 0;
+              const isAdjacent = Math.abs(relativeIdx) === 1;
+
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => setActiveIdx(idx)}
+                  className={cn(
+                    'group relative cursor-pointer rounded-2xl border bg-[#08080c] p-6 shadow-2xl transition-all duration-700 select-none shrink-0 w-full max-w-[440px]',
+                    isCurrent
+                      ? 'scale-100 opacity-100 border-amber-500/50 shadow-[0_0_35px_rgba(245,158,11,0.25)] z-20'
+                      : isAdjacent
+                      ? 'scale-95 opacity-50 border-white/10 hidden md:block z-10'
+                      : 'hidden'
+                  )}
+                >
+                  <div className="relative aspect-[16/10] w-full overflow-hidden rounded-xl border border-white/10 mb-5 bg-black">
+                    <img
+                      src={item.image}
+                      alt={item.title}
+                      className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    />
+                    <div className="absolute top-3 left-3 rounded-full bg-black/80 border border-white/10 px-3 py-1 font-mono text-xs text-zinc-200 backdrop-blur-md">
+                      {item.category}
+                    </div>
+                    <div className="absolute top-3 right-3 rounded-full bg-red-950/90 border border-red-500/40 px-3 py-1 font-mono text-xs font-bold text-red-400 backdrop-blur-md">
+                      Опасность {item.score}/100
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs font-mono text-zinc-400 mb-2">
+                    <span>{item.location}</span>
+                    <span className="text-amber-400 font-bold">{item.hazard}</span>
+                  </div>
+
+                  <h3 className="text-lg font-semibold text-white group-hover:text-amber-400 transition-colors">
+                    {item.title}
+                  </h3>
+
+                  <p className="mt-2 text-xs leading-relaxed text-zinc-400">
+                    {item.harm}
+                  </p>
+
+                  <div className="mt-5 flex items-center justify-between pt-4 border-t border-white/5">
+                    <div className="flex flex-wrap gap-1.5">
+                      {item.tags.map(t => (
+                        <span key={t} className="rounded bg-white/5 px-2.5 py-0.5 font-mono text-[10px] text-zinc-300">
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                    <Button variant="secondary" size="sm" icon="plus" onClick={(e) => { e.stopPropagation(); go('/submit'); }}>
+                      Сообщить
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </Container>
     </section>
@@ -4988,8 +5085,8 @@ function Landing({ data }: { data: Data }) {
       {/* Detailed Mission, Pillars & Comparison Table */}
       <LandingPillarsSection />
 
-      {/* Real Defect Examples Grid */}
-      <LandingDefectsShowcaseSection />
+      {/* 3D Circular Horizontal Defects Carousel */}
+      <LandingDefectsCarouselSection />
 
       {/* Interactive Repair Before/After Comparison Slider */}
       <RepairBeforeAfterSlider />
